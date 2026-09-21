@@ -1,70 +1,171 @@
-# TradeNet — Full Running Paper-Trading Project
+# TradeNet
 
-TradeNet is a local full-stack educational paper-trading app. It includes signup/login, SQLite persistence, virtual cash, holdings, buy/sell orders, order history, positions, funds, support requests, and optional current US stock quotes from Twelve Data.
+A full-stack **paper-trading platform** built with React, Vite, Node.js, Express, and SQLite.
 
-It does **not** place real brokerage orders and it does not use real money.
+TradeNet lets users create a local account, manage virtual funds, track a portfolio, and place simulated buy/sell orders. It can also retrieve current US stock quotes through Twelve Data when an API key is configured.
+
+> **Educational project only.** TradeNet does not execute real brokerage orders, handle real money, or provide investment advice.
+
+---
+
+## Features
+
+- User signup and login
+- Password hashing and session-based authentication
+- Virtual starting balance
+- Paper buy and sell orders
+- Holdings and portfolio tracking
+- Order history
+- Daily positions
+- Virtual fund deposits and withdrawals
+- Support request system
+- SQLite persistence
+- Optional current US stock quotes
+- Market-data caching and fallback prices
+- Responsive React dashboard
+- Local development and production-style modes
+
+---
+
+## Tech Stack
+
+### Frontend
+
+- React
+- Vite
+- JavaScript
+- CSS
+
+### Backend
+
+- Node.js
+- Express
+- SQLite
+
+### Market Data
+
+- Twelve Data API
+
+### Development
+
+- npm
+- Git
+- GitHub
+- VS Code
+
+---
+
+## Screenshots
+
+Screenshots can be added here once they are committed to the repository.
+
+```text
+screenshots/
+├── home.png
+├── dashboard.png
+├── holdings.png
+└── orders.png
+```
+
+Example:
+
+```markdown
+![TradeNet Dashboard](screenshots/dashboard.png)
+```
+
+---
 
 ## Requirements
 
+Make sure you have:
+
 - Node.js 24 or newer
 - npm
-- Optional: a Twelve Data API key for current/live-ready quotes
+- Git
+- Optional Twelve Data API key
 
-Check Node:
+Check your Node version:
 
 ```powershell
 node --version
 ```
 
-## Fastest way to run in VS Code
+---
 
-Open this `TradeNet` folder in VS Code, then open **Terminal → New Terminal**.
+## Installation
 
-First time only:
+Clone the repository:
+
+```powershell
+git clone https://github.com/shivek16/TradeNet.git
+```
+
+Enter the project:
+
+```powershell
+cd TradeNet
+```
+
+Install dependencies:
 
 ```powershell
 npm ci
 ```
 
-For current quotes, copy the example environment file:
+---
+
+## Environment Variables
+
+Create your local environment file:
 
 ```powershell
 Copy-Item .env.example .env
+```
+
+Open it in VS Code:
+
+```powershell
 code .env
 ```
 
-Replace `your_api_key_here` with your own Twelve Data API key:
+Add your Twelve Data API key:
 
 ```env
-TWELVE_DATA_API_KEY=YOUR_PRIVATE_KEY_HERE
+TWELVE_DATA_API_KEY=YOUR_PRIVATE_API_KEY
 MARKET_CACHE_MS=65000
 ```
 
-Do not commit or share `.env`. It is already ignored by Git.
+Never commit your real `.env` file.
 
-You can also double-click `SETUP-LIVE-DATA.cmd` on Windows and paste the key there.
+The repository includes `.env.example` so other developers can see which environment variables are required without exposing private credentials.
 
-Start development mode:
+---
+
+## Run in Development Mode
+
+Start TradeNet:
 
 ```powershell
 npm run dev
 ```
 
-Then open:
+The frontend will run at:
 
 ```text
 http://127.0.0.1:5173/
 ```
 
-The backend runs on:
+The backend API runs at:
 
 ```text
 http://127.0.0.1:3002/
 ```
 
-Vite proxies `/api` from port 5173 to port 3002. The backend explicitly allows the two local Vite development origins, so signup/login works in development without the previous cross-origin rejection.
+Vite proxies frontend `/api` requests to the Express backend.
 
-## Production-style local run
+---
+
+## Production-Style Local Run
 
 Build the frontend:
 
@@ -84,90 +185,266 @@ Open:
 http://127.0.0.1:3002/
 ```
 
-In this mode Express serves the built frontend and API from the same origin.
+In this mode, Express serves both the frontend build and API from the same origin.
 
-## Market data behavior
+---
 
-The default watchlist contains seven US symbols:
+## Market Data
 
-- AAPL
-- MSFT
-- NVDA
-- AMZN
-- GOOGL
-- META
-- TSLA
+TradeNet currently supports these demonstration US symbols:
 
-When `TWELVE_DATA_API_KEY` is configured, the backend requests Twelve Data quotes and caches them for about 65 seconds. The dashboard shows a market badge:
+| Symbol | Company |
+|---|---|
+| AAPL | Apple |
+| MSFT | Microsoft |
+| NVDA | NVIDIA |
+| AMZN | Amazon |
+| GOOGL | Alphabet |
+| META | Meta Platforms |
+| TSLA | Tesla |
 
-- `LIVE` — all requested symbols came from the provider
-- `PARTIAL` — some symbols are live and others are cached/sample
-- `SAMPLE` — no key is configured or the provider is unavailable
+When a Twelve Data API key is configured, the backend requests updated market quotes and caches them to reduce API usage.
 
-Buy/sell orders always use the latest quote selected by the **backend**, not a price supplied by the browser. If live data is unavailable, the app falls back safely to sample prices so the project still runs.
+The dashboard can show three market-data states:
+
+- **LIVE** — requested quotes were returned by the provider
+- **PARTIAL** — some quotes use provider data while others use cached or fallback data
+- **SAMPLE** — provider data is unavailable or no API key is configured
+
+Availability and freshness of market data depend on the Twelve Data plan and exchange access.
+
+---
+
+## Paper Trading
+
+Trades are simulated.
+
+When a buy or sell order is placed:
+
+1. The frontend sends the order request to the backend.
+2. The backend determines the execution price.
+3. The user's virtual cash and holdings are updated.
+4. The order is saved in SQLite.
+5. The dashboard refreshes the portfolio.
+
+The browser does not directly control the execution price.
+
+---
 
 ## Database
 
-The app uses SQLite:
+TradeNet uses a local SQLite database:
 
 ```text
 data/trading.sqlite
 ```
 
-It is created automatically on first server start. Account state includes cash, holdings, orders, transfers and support requests.
+It is automatically created when the backend starts.
 
-To reset all local accounts, stop the server and delete the `data` folder. This is permanent.
+Stored account data includes:
 
-## Useful commands
+- Users
+- Sessions
+- Virtual cash
+- Holdings
+- Orders
+- Transactions
+- Support requests
+
+The local `data/` directory is excluded from Git.
+
+To completely reset your local TradeNet data, stop the server and delete the `data` directory.
+
+> This permanently removes local accounts and portfolio data.
+
+---
+
+## Project Structure
+
+```text
+TradeNet/
+│
+├── backend/
+│   ├── market.js
+│   ├── seed.json
+│   └── server.js
+│
+├── dashboard/
+│   └── src/
+│       └── Dashboard.jsx
+│
+├── frontend/
+│   └── src/
+│       ├── api.js
+│       ├── main.jsx
+│       └── styles.css
+│
+├── scripts/
+│   └── dev.js
+│
+├── tests/
+│   └── api.test.js
+│
+├── .env.example
+├── .gitignore
+├── index.html
+├── package.json
+├── package-lock.json
+├── vite.config.js
+└── README.md
+```
+
+---
+
+## Available Commands
+
+### Development
 
 ```powershell
 npm run dev
+```
+
+### Production Build
+
+```powershell
 npm run build
+```
+
+### Start Backend
+
+```powershell
 npm start
+```
+
+### Tests
+
+```powershell
 npm test
+```
+
+### Full Check
+
+```powershell
 npm run check
 ```
 
-`npm run check` runs the integration tests and production build.
+`npm run check` runs the project tests and production build.
 
-## Project layout
-
-```text
-backend/server.js       Express API, authentication, SQLite and trading
-backend/market.js       Twelve Data quote service + cache + fallback
-backend/seed.json       Seven US sample symbols and starting holdings
-frontend/src/main.jsx   Public pages, routing, signup and login
-frontend/src/api.js     API client, USD/date formatting
-dashboard/src/          Trading dashboard
-scripts/dev.js          Starts backend + Vite together
-tests/api.test.js       Integration tests
-.env.example            Safe environment template
-```
+---
 
 ## Troubleshooting
 
-**Cross-origin request rejected**
+### `Cross-origin request rejected`
 
-Use the supplied code and run `npm run dev`. Open exactly `http://127.0.0.1:5173/` or `http://localhost:5173/`. The backend allows those local development origins.
+Run:
 
-**Frontend loads but API says ECONNREFUSED**
+```powershell
+npm run dev
+```
 
-The backend did not start. Read the terminal error above the Vite output. Confirm `backend/market.js` exists:
+Then use one of these addresses:
+
+```text
+http://127.0.0.1:5173/
+```
+
+or
+
+```text
+http://localhost:5173/
+```
+
+---
+
+### `ECONNREFUSED 127.0.0.1:3002`
+
+The backend probably failed to start.
+
+Check the terminal for the actual backend error.
+
+You can also verify that the market service exists:
 
 ```powershell
 Test-Path .\backend\market.js
 ```
 
-It should print `True`.
+Expected:
 
-**No live prices**
+```text
+True
+```
 
-Check `.env` exists and contains your API key, then restart `npm run dev`. Never paste the key into chat or commit it to GitHub.
+---
 
-**Port 3002 or 5173 is already in use**
+### No updated market quotes
 
-Stop the other process with `Ctrl+C`, then run `npm run dev` again.
+Make sure `.env` exists:
 
-## Security / scope
+```powershell
+Get-ChildItem -Force .env
+```
 
-This is an educational local project, not a production brokerage platform. Passwords are hashed, sessions are HTTP-only, mutation requests are origin-checked, and account data is separated in SQLite. Internet deployment would need a separate production security and operations review.
+Then check that your Twelve Data key has been added.
+
+Restart TradeNet after changing `.env`:
+
+```powershell
+npm run dev
+```
+
+---
+
+### Port already in use
+
+Stop the running development process with:
+
+```text
+Ctrl + C
+```
+
+Then start it again:
+
+```powershell
+npm run dev
+```
+
+---
+
+## Security
+
+TradeNet includes several protections appropriate for a local educational project:
+
+- Password hashing
+- HTTP-only sessions
+- Origin validation for mutation requests
+- Backend-controlled trade execution prices
+- Private `.env` configuration
+- SQLite account separation
+
+This project has **not** been designed or audited for real-money brokerage use or public financial infrastructure.
+
+---
+
+## Disclaimer
+
+TradeNet is an independent educational project.
+
+It is not affiliated with Zerodha, Twelve Data, NASDAQ, NYSE, or any brokerage or exchange.
+
+Stock prices may be delayed, cached, simulated, or unavailable depending on API configuration.
+
+Nothing in this project should be considered financial or investment advice.
+
+---
+
+## Author
+
+**Shiv**
+
+GitHub: [@shivek16](https://github.com/shivek16)
+
+---
+
+## License
+
+This project can be licensed under the MIT License for educational and portfolio use.
