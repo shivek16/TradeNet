@@ -1,0 +1,119 @@
+{
+  "watchlist": [
+    {
+      "name": "AAPL",
+      "company": "Apple",
+      "price": 190,
+      "percent": "+1.20%",
+      "isDown": false
+    },
+    {
+      "name": "MSFT",
+      "company": "Microsoft",
+      "price": 420,
+      "percent": "+0.80%",
+      "isDown": false
+    },
+    {
+      "name": "NVDA",
+      "company": "NVIDIA",
+      "price": 125,
+      "percent": "-0.60%",
+      "isDown": true
+    },
+    {
+      "name": "AMZN",
+      "company": "Amazon",
+      "price": 185,
+      "percent": "+0.90%",
+      "isDown": false
+    },
+    {
+      "name": "GOOGL",
+      "company": "Alphabet",
+      "price": 175,
+      "percent": "+0.45%",
+      "isDown": false
+    },
+    {
+      "name": "META",
+      "company": "Meta Platforms",
+      "price": 500,
+      "percent": "-0.35%",
+      "isDown": true
+    },
+    {
+      "name": "TSLA",
+      "company": "Tesla",
+      "price": 240,
+      "percent": "-1.10%",
+      "isDown": true
+    }
+  ],
+  "holdings": [
+    {
+      "name": "AAPL",
+      "company": "Apple",
+      "qty": 1,
+      "avg": 185,
+      "price": 190,
+      "net": "+2.70%",
+      "day": "+1.20%"
+    },
+    {
+      "name": "MSFT",
+      "company": "Microsoft",
+      "qty": 2,
+      "avg": 400,
+      "price": 420,
+      "net": "+5.00%",
+      "day": "+0.80%"
+    },
+    {
+      "name": "NVDA",
+      "company": "NVIDIA",
+      "qty": 5,
+      "avg": 110,
+      "price": 125,
+      "net": "+13.64%",
+      "day": "-0.60%"
+    },
+    {
+      "name": "AMZN",
+      "company": "Amazon",
+      "qty": 3,
+      "avg": 178,
+      "price": 185,
+      "net": "+3.93%",
+      "day": "+0.90%"
+    },
+    {
+      "name": "GOOGL",
+      "company": "Alphabet",
+      "qty": 4,
+      "avg": 165,
+      "price": 175,
+      "net": "+6.06%",
+      "day": "+0.45%"
+    },
+    {
+      "name": "META",
+      "company": "Meta Platforms",
+      "qty": 1,
+      "avg": 480,
+      "price": 500,
+      "net": "+4.17%",
+      "day": "-0.35%"
+    },
+    {
+      "name": "TSLA",
+      "company": "Tesla",
+      "qty": 2,
+      "avg": 255,
+      "price": 240,
+      "net": "-5.88%",
+      "day": "-1.10%"
+    }
+  ],
+  "positions": []
+}

@@ -1,0 +1,25 @@
+{
+  "name": "tradenet-paper-trading",
+  "version": "1.1.0",
+  "private": true,
+  "description": "TradeNet local full-stack paper-trading platform with optional Twelve Data quotes",
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env backend/server.js",
+    "dev": "node scripts/dev.js",
+    "build": "vite build",
+    "test": "node --test tests/*.test.js",
+    "check": "npm test && npm run build"
+  },
+  "dependencies": {
+    "express": "5.2.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "vite": "8.3.0"
+  }
+}
