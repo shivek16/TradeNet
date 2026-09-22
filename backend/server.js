@@ -1,5 +1,7 @@
 import express from "express";
 import { createMarketService } from "./market.js";
+import { createChartService, INTERVALS } from "./charts.js";
+import { createPriceStream } from "./stream.js";
 import { DatabaseSync } from "node:sqlite";
 import {
   randomBytes,
@@ -27,7 +29,12 @@ const quotes = [
   ...new Map(
     [...seed.holdings, ...seed.positions, ...seed.watchlist].map((s) => [
       s.name,
-      { name: s.name, company: s.company || s.name, price: s.price, day: s.day || s.percent || "0%" },
+      {
+        name: s.name,
+        company: s.company || s.name,
+        price: s.price,
+        day: s.day || s.percent || "0%",
+      },
     ]),
   ).values(),
 ];
@@ -42,6 +49,8 @@ const initial = () => ({
 export function createApp({
   dbPath = process.env.DATA_FILE || path.join(root, "data/trading.sqlite"),
   marketService = null,
+  chartService = null,
+  streamService = null,
 } = {}) {
   if (dbPath !== ":memory:")
     mkdirSync(path.dirname(path.resolve(dbPath)), { recursive: true });
@@ -49,8 +58,29 @@ export function createApp({
   db.exec(
     "PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE NOT NULL, password TEXT NOT NULL, state TEXT NOT NULL); CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, user_id TEXT REFERENCES users(id), expires INTEGER NOT NULL);",
   );
+  // Keep previously owned symbols sellable when the default watchlist changes.
+  const universe = new Map(quotes.map((q) => [q.name, q]));
+  for (const row of db.prepare("SELECT state FROM users").all()) {
+    for (const holding of JSON.parse(row.state).holdings || []) {
+      if (
+        !universe.has(holding.name) &&
+        /^[A-Z][A-Z0-9.&-]{0,14}$/.test(holding.name)
+      )
+        universe.set(holding.name, {
+          name: holding.name,
+          company: holding.company || holding.name,
+          price: holding.price,
+          day: holding.day || "0%",
+        });
+    }
+  }
+  const availableQuotes = [...universe.values()];
   const market =
-    marketService || createMarketService({ fallbackQuotes: quotes });
+    marketService || createMarketService({ fallbackQuotes: availableQuotes });
+  const charts = chartService || createChartService();
+  const stream =
+    streamService ||
+    createPriceStream({ onTrade: (tick) => market.ingestTrade?.(tick) });
   const app = express();
   app.disable("x-powered-by");
   const allowedDevOrigins = new Set([
@@ -129,7 +159,12 @@ export function createApp({
     return { email, password };
   }
   app.get("/api/health", (req, res) =>
-    res.json({ status: "ok", mode: "paper", storage: "sqlite", marketConfigured: market.configured }),
+    res.json({
+      status: "ok",
+      mode: "paper",
+      storage: "sqlite",
+      marketConfigured: market.configured,
+    }),
   );
   app.post("/api/auth/register", (req, res) => {
     const { email, password } = credentials(req.body || {}),
@@ -207,12 +242,21 @@ export function createApp({
   });
   app.get("/api/portfolio", async (req, res) => {
     const state = JSON.parse(req.user.state);
-    const snapshot = await market.getSnapshot(quotes.map((quote) => quote.name));
-    const bySymbol = new Map(snapshot.quotes.map((quote) => [quote.name, quote]));
+    const snapshot = await market.getSnapshot(
+      availableQuotes.map((quote) => quote.name),
+    );
+    const bySymbol = new Map(
+      snapshot.quotes.map((quote) => [quote.name, quote]),
+    );
     const holdings = state.holdings.map((holding) => {
       const quote = bySymbol.get(holding.name);
       return quote
-        ? { ...holding, company: quote.company || holding.company, price: quote.price, day: quote.day }
+        ? {
+            ...holding,
+            company: quote.company || holding.company,
+            price: quote.price,
+            day: quote.day,
+          }
         : holding;
     });
     res.json({
@@ -221,6 +265,46 @@ export function createApp({
       quotes: snapshot.quotes,
       market: snapshot.meta,
       user: publicUser(req.user),
+    });
+  });
+  app.get("/api/market/history", async (req, res) => {
+    const { symbol, interval = "1min" } = req.query;
+    if (!universe.has(symbol) || !Object.hasOwn(INTERVALS, interval))
+      return res
+        .status(400)
+        .json({ error: "Unsupported symbol or chart interval." });
+    res.json(await charts.history(symbol, interval));
+  });
+  app.get("/api/market/stream", (req, res) => {
+    const symbol = req.query.symbol;
+    if (!universe.has(symbol))
+      return res.status(400).json({ error: "Unsupported symbol." });
+    res.set({
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    });
+    res.flushHeaders();
+    const send = (event, value) => {
+      if (!res.destroyed)
+        res.write(
+          "event: " + event + "\ndata: " + JSON.stringify(value) + "\n\n",
+        );
+    };
+    const unsubscribe = stream.subscribe(symbol, send);
+    const keepAlive = setInterval(() => {
+      if (
+        !db
+          .prepare("SELECT token FROM sessions WHERE token=? AND expires>?")
+          .get(req.token, Date.now())
+      )
+        return res.end();
+      res.write(": keep-alive\n\n");
+    }, 15000);
+    res.on("close", () => {
+      clearInterval(keepAlive);
+      unsubscribe();
     });
   });
   function mutate(req, operation) {
@@ -243,7 +327,7 @@ export function createApp({
   }
   app.post("/api/orders", async (req, res) => {
     const { name, qty, side, requestId } = req.body || {};
-    const listed = quotes.some((q) => q.name === name);
+    const listed = universe.has(name);
     const quote = listed ? await market.getQuote(name) : null;
     if (
       !quote ||
@@ -258,6 +342,20 @@ export function createApp({
       );
     if (typeof requestId !== "string" || !/^[\w-]{8,80}$/.test(requestId))
       fail(400, "A valid request ID is required.");
+    // Retries return their original fill, even if the quote feed subsequently failed.
+    const saved = JSON.parse(req.user.state).orders.find(
+      (o) => o.requestId === requestId,
+    );
+    if (saved) {
+      if (saved.name !== name || saved.qty !== qty || saved.side !== side)
+        fail(409, "Request ID already used.");
+      return res.status(201).json({ order: saved });
+    }
+    if (market.configured && !quote.live)
+      fail(
+        503,
+        "Paper order paused: a fresh market quote is unavailable or the market is closed. No sample-price fill was made.",
+      );
     const order = mutate(req, (state) => {
       const previous = state.orders.find((o) => o.requestId === requestId);
       if (previous) {
@@ -393,21 +491,19 @@ export function createApp({
   });
   app.use((err, req, res, next) => {
     if (!err.status) console.error(err);
-    res
-      .status(err.status || 500)
-      .json({
-        error: err.status
-          ? err.message
-          : "Unexpected server error. Please try again.",
-      });
+    res.status(err.status || 500).json({
+      error: err.status
+        ? err.message
+        : "Unexpected server error. Please try again.",
+    });
   });
-  return { app, db };
+  return { app, db, closeStreams: () => stream.close() };
 }
 if (
   process.argv[1] &&
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
-  const { app, db } = createApp();
+  const { app, db, closeStreams } = createApp();
   const port = Number(process.env.PORT || 3002);
   const server = app.listen(port, process.env.HOST || "127.0.0.1", () =>
     console.log(`TradeNet paper trading: http://localhost:${port}`),
@@ -421,11 +517,14 @@ if (
     db.close();
     process.exit(1);
   });
-  const stop = () =>
+  const stop = () => {
+    closeStreams();
+    server.closeAllConnections();
     server.close(() => {
       db.close();
       process.exit(0);
     });
+  };
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
 }

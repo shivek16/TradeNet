@@ -1,3 +1,4 @@
+import MarketChart from "./MarketChart.jsx";
 import React, { useState, useEffect, useRef } from "react";
 import { api, money, date } from "../../frontend/src/api.js";
 const tabs = ["Overview", "Orders", "Holdings", "Positions", "Funds", "Apps"];
@@ -101,6 +102,36 @@ export default function Dashboard({ user, path, go, link, onLogout }) {
           </button>
         </div>
         {totals}
+        <MarketChart
+          quotes={data.quotes}
+          onQuoteTick={(tick) =>
+            setData((current) =>
+              current
+                ? {
+                    ...current,
+                    quotes: current.quotes.map((q) =>
+                      q.name === tick.symbol
+                        ? {
+                            ...q,
+                            price: tick.price,
+                            source: "stream",
+                            live: true,
+                            isMarketOpen: true,
+                            timestamp: new Date(
+                              tick.timestamp * 1000,
+                            ).toISOString(),
+                          }
+                        : q,
+                    ),
+                    holdings: current.holdings.map((h) =>
+                      h.name === tick.symbol ? { ...h, price: tick.price } : h,
+                    ),
+                  }
+                : current,
+            )
+          }
+          onTrade={(stock, side) => setTrade({ ...stock, side })}
+        />
         <div className="overview-grid">
           <section className="card">
             <h3>Portfolio allocation</h3>
@@ -317,7 +348,9 @@ export default function Dashboard({ user, path, go, link, onLogout }) {
     <div className="workspace">
       <div className="simulation-bar">
         PAPER TRADING{" "}
-        <span>Virtual money · Market quotes when configured · No real orders</span>
+        <span>
+          Virtual money · Market quotes when configured · No real orders
+        </span>
       </div>
       <header className="trading-header">
         {link("/", "◩ TradeNet", "brand")}
@@ -338,7 +371,9 @@ export default function Dashboard({ user, path, go, link, onLogout }) {
         <aside className="watchlist">
           <div className="watchlist-title">
             <h3>Watchlist</h3>
-            <span className="badge">{(data?.market?.status || "sample").toUpperCase()}</span>
+            <span className="badge">
+              {(data?.market?.status || "sample").toUpperCase()}
+            </span>
           </div>
           <div className="watch-search">
             <input
@@ -381,13 +416,17 @@ export default function Dashboard({ user, path, go, link, onLogout }) {
               ) && <p className="empty">No instruments found.</p>}
           </div>
           <p className="watch-note">
-            {data?.market?.status === "live"
-              ? `Twelve Data quotes · refreshed about every ${Math.round((data.market.refreshMs || 65000) / 1000)} seconds.`
-              : data?.market?.status === "partial"
-                ? "Some symbols are live; unavailable symbols use cached or sample prices."
-                : data?.market?.configured
-                  ? "Live provider unavailable right now; using cached/sample prices."
-                  : "Add TWELVE_DATA_API_KEY to .env for live/current quotes. Using sample prices now."}
+            {data?.market?.status === "closed"
+              ? "Market closed · latest available provider quotes."
+              : data?.market?.status === "delayed"
+                ? "Delayed or cached quotes. Fresh quotes are required for paper orders."
+                : data?.market?.status === "live"
+                  ? `Twelve Data quotes · refreshed about every ${Math.round((data.market.refreshMs || 65000) / 1000)} seconds.`
+                  : data?.market?.status === "partial"
+                    ? "Some symbols are live; unavailable symbols use cached or sample prices."
+                    : data?.market?.configured
+                      ? "Live provider unavailable right now; using cached/sample prices."
+                      : "Add TWELVE_DATA_API_KEY to .env for live/current quotes. Using sample prices now."}
           </p>
         </aside>
         <main className="dashboard-content">
@@ -657,8 +696,8 @@ function OrderModal({ stock, cash, owned, close, completed }) {
           <strong>{money(total)}</strong>
         </div>
         <p className="small">
-          Executes immediately at the latest quote returned by the server. No brokerage or taxes
-          in this simulation.
+          Executes immediately at the latest quote returned by the server. No
+          brokerage or taxes in this simulation.
         </p>
         {error && (
           <p className="error" role="alert">

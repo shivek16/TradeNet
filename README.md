@@ -205,11 +205,13 @@ TradeNet currently supports these demonstration US symbols:
 
 When a Twelve Data API key is configured, the backend requests updated market quotes and caches them to reduce API usage.
 
-The dashboard can show three market-data states:
+The dashboard shows these market-data states:
 
-- **LIVE** — requested quotes were returned by the provider
-- **PARTIAL** — some quotes use provider data while others use cached or fallback data
-- **SAMPLE** — provider data is unavailable or no API key is configured
+- `LIVE` — all requested symbols have fresh provider timestamps and are not reported closed
+- `PARTIAL` — some symbols are live and others are cached/sample
+- `SAMPLE` — no API key is configured; `DELAYED`, `CLOSED` and `UNAVAILABLE` distinguish other states
+
+Buy/sell orders always use the latest quote selected by the **backend**, not a price supplied by the browser. When an API key is configured, new paper orders pause if the quote is stale, unavailable, or the provider reports the market closed. Sample-price trading is only available when no key is configured. Retried completed orders retain their original fill.
 
 Availability and freshness of market data depend on the Twelve Data plan and exchange access.
 
@@ -228,6 +230,8 @@ When a buy or sell order is placed:
 5. The dashboard refreshes the portfolio.
 
 The browser does not directly control the execution price.
+
+Buy/sell orders always use the latest quote selected by the **backend**, not a price supplied by the browser. When an API key is configured, new paper orders pause if the quote is stale, unavailable, or the provider reports the market closed. Sample-price trading is only available when no key is configured. Retried completed orders retain their original fill.
 
 ---
 
@@ -448,3 +452,30 @@ GitHub: [@shivek16](https://github.com/shivek16)
 ## License
 
 This project can be licensed under the MIT License for educational and portfolio use.
+
+---
+
+## Version 1.2 — Interactive market chart
+
+The Overview dashboard now includes a candlestick chart and separate volume bars, a stock selector, 1m/5m/15m/1H/1D timeframes, hover OHLC readout, zoom, history navigation and buy/sell shortcuts. No additional dependencies are required.
+
+History is fetched server-side from Twelve Data `/time_series`, in UTC, and displayed in Eastern Time for intraday bars. The server caches each symbol/interval for 65 seconds and shares requests between clients. History contains up to 200 provider bars. New ticks update the active candle and selected stock valuation. Stream-built candles are provisional, based on ticks actually received; history refresh reconciles them. Missing intervals are not invented. Volume is refreshed from provider history, not manufactured from price ticks; a new streaming candle shows volume as pending until supplied by history.
+
+One server-side Twelve Data WebSocket is shared across viewers. An authenticated EventSource connection relays only the selected symbol to each browser. Keys never appear in client JavaScript or events. Idle subscriptions are removed. Reconnects are automatic. Symbols not covered by the streaming subscription continue to use periodic history requests. A connection alone is not labeled STREAMING: a recent timestamped tick must actually arrive.
+
+Your provider plan controls symbol coverage, history access, latency, and API/WebSocket credits. The app does not unlock access the plan does not include. Seven watchlist quotes plus a new chart request can consume a basic plan's minute allowance. Rapidly switching timeframes can trigger rate limits; the UI displays the failure and retries later. No automatic paid upgrade is performed. Free/limited plans may not provide tick streaming for the chosen stock.
+
+Official provider documentation:
+
+- https://support.twelvedata.com/en/articles/5620516-how-to-stream-the-data
+- https://support.twelvedata.com/en/articles/5194610-websocket-faq
+
+### Upgrade existing installation
+
+Stop the old server first. Copy the updated source into the project directory while keeping your existing `.env` and `data` directory. Neither is included in the distributable ZIP. Then run `npm ci` followed by `npm run dev`, and open http://127.0.0.1:5173/ . The separate `dist` build can also be served with `npm start`.
+
+Previously owned symbols remain supported when loading an existing database even if removed from the default watchlist. Quote cache freshness is tracked per symbol, and concurrent quote requests wait on their shared provider request.
+
+### Validation
+
+`npm run check` includes market-specific tests for concurrent quotes, stale/partial responses, missing keys, history parsing/caching, candle aggregation, stream routing and cleanup, authenticated chart endpoints and blocking stale-price orders. Tests use controlled provider fixtures, not your real API account.
