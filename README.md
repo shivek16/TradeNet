@@ -443,7 +443,7 @@ Nothing in this project should be considered financial or investment advice.
 
 ## Author
 
-**Shiv**
+**Shivek**
 
 GitHub: [@shivek16](https://github.com/shivek16)
 
